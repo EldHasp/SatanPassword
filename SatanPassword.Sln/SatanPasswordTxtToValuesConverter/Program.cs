@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.Serialization.Formatters.Binary;
 
 namespace SatanPasswordTxtToValuesConverter
 {
@@ -23,49 +25,107 @@ namespace SatanPasswordTxtToValuesConverter
 
         }
 
-      static  readonly int length = (int)Math.Pow(10, 8);
+        static readonly int length = (int)Math.Pow(10, 8);
         static void TxtToValuesConvert(string fileTxt, string fileBin, string fileNotKey)
         {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+            var timeBeg = DateTime.Now;
+
             uint value = 0, key = 0;
             int letter;
-            uint[] values = Enumerable.Repeat(0xFF_FF_FF_FF, length).ToArray();
+            uint[] values = Enumerable.Repeat(uint.MaxValue, length).ToArray();
             uint[] counts = new uint[length];
+            uint foundCount = 0;
             uint countsMax = 0;
-            int countsMaxKey = 0;
+            uint countsMaxKey = 0;
 
-            var file = File.OpenRead(fileBin);
+            Console.WriteLine(
+$@"Конвертация текстового ASCII файла ""{fileTxt}"" последовательности цифр
+в массив всех значений и его сериализиция в файл ""{fileBin}"".
+Ненайденные ключи будут записаны в файл ""{fileNotKey}"".");
 
-            // Заполнение начального значения
-            for (int i = 0; i < 7; i++)
+
+
+            FileStream file;
+            long position;
+            using (file = File.OpenRead(fileTxt))
             {
-                letter = file.ReadByte();
-                value |= TryDigitMessagePosition(letter) << (7 - i) * 4;
+                // Заполнение начального значения
+                for (int i = 0; i < 7; i++)
+                {
+                    letter = file.ReadByte();
+                    value |= TryDigitMessagePosition(letter) << (7 - i) * 4;
+                }
+
+                // Заполнение начального ключа
+                for (int i = 0; i < 8; i++)
+                {
+                    letter = file.ReadByte();
+                    key |= TryDigitMessagePosition(letter) << (8 - i) * 4;
+                }
+
+                //Посимвольное считывание
+                while (foundCount < length && (letter = file.ReadByte()) >= 0)
+                {
+                    // Получение новых значения и ключа.
+                    value <<= 4;
+                    value |= key >> 28;
+                    key <<= 4;
+                    key |= TryDigitMessagePosition(letter);
+                    uint index = HexDecimalToUInt(key);
+
+                    // Проверка был ли уже такой ключ
+                    if (counts[index] == 0)
+                    {
+                        values[index] = value;
+                        foundCount++;
+                    }
+
+                    // Инкремент счётчика ключа.
+                    counts[index]++;
+                    // Получение максимального счётчика
+                    if (countsMax < counts[index])
+                    {
+                        countsMax = counts[index];
+                        countsMaxKey = index;
+                    }
+
+                    // Вывод прогресса
+                    if (stopwatch.ElapsedMilliseconds > 500)
+                    {
+                        OutputProgress();
+                        stopwatch.Restart();
+                    }
+
+                }
+                OutputProgress();
+                position = file.Position;
             }
 
-            // Заполнение начального ключа
-            for (int i = 0; i < 8; i++)
+            Console.WriteLine($"\r\n{new string('*', 80)}\r\nРасчёт закончен. Сохранение результата.");
+            using (file = File.Create(fileBin))
             {
-                letter = file.ReadByte();
-                key |= TryDigitMessagePosition(letter) << (8 - i) * 4;
+                BinaryFormatter formatter = new BinaryFormatter();
+                formatter.Serialize(file, values);
+                file.Dispose();
             }
 
-            //Посимвольное считывание
-            while ((letter = file.ReadByte()) >= 0)
-            {
-                // Получение новых значения и ключа.
-                value <<= 4;
-                value |= key >> 28;
-                key <<= 4;
-                key |= TryDigitMessagePosition(letter);
-                uint index = HexDecimalToUInt(key);
+            Console.WriteLine("Сохранение списка ненайденных ключей.");
+            File.WriteAllLines(fileNotKey,
+                values
+                .Select((value, key) => (value, key))
+                .Where(vk => vk.value == uint.MaxValue)
+                .Select(vk => vk.key.ToString("0000-0000")));
 
-                // Проверка был ли уже такой ключ
-                if (counts[index]==0)
-                    values[index] = value;
+            Console.WriteLine(
+$@"Обработано до позиции: {position}. Найдено ключей: {foundCount}. Не найденно ключей: {length - foundCount}.
+Среднее количество значений на ключ: { position / (decimal)foundCount:F2}
+Максимально количесто {countsMax} раз встретился ключ {countsMaxKey}.
+Время затраченое на ковертацию {DateTime.Now - timeBeg}");
 
-                counts[index]++;
-
-            }
+            Console.Write("\r\nДля выхода нажмите Enter:");
+            Console.ReadLine();
 
             uint TryDigitMessagePosition(int digit)
             {
@@ -73,6 +133,9 @@ namespace SatanPasswordTxtToValuesConverter
                     return result;
                 throw new Exception($"В позиции {file.Position} не цифра.");
             }
+            void OutputProgress()
+                => Console.Write($" \rОбработано: {file.Position / (decimal)file.Length:P2}. Осталось найти ключей: {length - foundCount}.");
+
         }
 
         static bool TryDigit(int digit, out uint result)
