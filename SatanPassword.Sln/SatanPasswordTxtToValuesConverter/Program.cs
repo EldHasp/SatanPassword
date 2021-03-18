@@ -121,7 +121,7 @@ $@"Конвертация текстового ASCII файла ""{fileTxt}"" п
             Console.WriteLine(
 $@"Обработано до позиции: {position}. Найдено ключей: {foundCount}. Не найденно ключей: {length - foundCount}.
 Среднее количество значений на ключ: { position / (decimal)foundCount:F2}
-Максимально количесто {countsMax} раз встретился ключ {countsMaxKey}.
+Максимально количество {countsMax} раз встретился ключ {countsMaxKey}.
 Время затраченое на ковертацию {DateTime.Now - timeBeg}");
 
             Console.Write("\r\nДля выхода нажмите Enter:");

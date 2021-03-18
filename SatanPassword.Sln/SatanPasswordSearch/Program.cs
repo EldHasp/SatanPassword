@@ -39,7 +39,7 @@ namespace SatanPasswordSearch
                     if (value == uint.MaxValue)
                         Console.Write("Нет значения для этого ключа.");
                     else
-                        Console.Write($"Первая часть пароля {Convert.ToString(value, 16)}.");
+                        Console.Write($"Первая часть пароля {value:0000-0000}.");
                     Console.WriteLine($" Время поиска {stopwatch.ElapsedMilliseconds} мс.");
                 }
             }

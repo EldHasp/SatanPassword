@@ -41,7 +41,7 @@ namespace SatanPasswordGetValue
                     if (value == 0xFF_FF_FF_FF)
                         Console.WriteLine("Нет значения для этого ключа.");
                     else
-                        Console.WriteLine($"Первая часть пароля {Convert.ToString(value, 16)}.");
+                        Console.WriteLine($"Первая часть пароля {Convert.ToString(value, 16).PadLeft(8, '0').Insert(4, "-")}.");
                 }
             }
 
