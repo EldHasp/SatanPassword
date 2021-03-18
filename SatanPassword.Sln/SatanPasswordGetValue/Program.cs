@@ -39,7 +39,7 @@ namespace SatanPasswordGetValue
                 {
                     uint value = values[key];
                     if (value == 0xFF_FF_FF_FF)
-                        Console.WriteLine("Нет значения для этого кляюча.");
+                        Console.WriteLine("Нет значения для этого ключа.");
                     else
                         Console.WriteLine($"Первая часть пароля {Convert.ToString(value, 16)}.");
                 }
